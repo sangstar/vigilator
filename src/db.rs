@@ -10,7 +10,7 @@ pub static TOKIO_RUNTIME: Lazy<Runtime> = Lazy::new(|| {
     Runtime::new().expect("Failed to create tokio runtime")
 });
 
-static SQLITE_POOL: OnceCell<SqlitePool> = OnceCell::new();
+pub static SQLITE_POOL: OnceCell<SqlitePool> = OnceCell::new();
 
 
 async fn debug_table_contents(pool: &SqlitePool) {
@@ -95,32 +95,4 @@ pub async fn query_output_from_id(id: i32) -> Result<ModelOutput, PyErr> {
     ModelOutput::deserialize(&row.0).map_err(|e| {
         PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Failed to deserialize: {}", e))
     })
-}
-
-
-#[tokio::test]
-async fn test_send_output() {
-    let pool = SqlitePool::connect("sqlite::memory:").await.expect("Failed to connect");
-    SQLITE_POOL.set(pool).expect("Pool already initialized");
-
-    let token_ids = vec![1, 2, 3];
-    let logits = vec![0.1, 0.2, 0.3];
-
-    let output = ModelOutput::new(token_ids.clone(), logits.clone());
-    insert_output(output).await.expect("Failed to insert output");
-
-    let row: (Vec<u8>,) = sqlx::query_as(
-        r#"
-        SELECT output
-        FROM model_outputs
-        WHERE id = 1
-        "#,
-    )
-        .fetch_one(&*SQLITE_POOL.get().unwrap())
-        .await
-        .expect("Failed to fetch output");
-
-    let deserialized: ModelOutput = ModelOutput::deserialize(&row.0).expect("Failed to deserialize");
-    assert_eq!(deserialized.token_ids, token_ids);
-    assert_eq!(deserialized.logits, logits);
 }
