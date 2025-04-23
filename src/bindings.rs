@@ -4,8 +4,6 @@ use pyo3::prelude::*;
 use crate::db::{insert_output, query_output_from_id, TOKIO_RUNTIME};
 use crate::outputs::ModelOutput;
 
-/// A Python module implemented in Rust.
-
 // TODO: Include decoded text in the database as well so you can query by
 //       a prompt
 
