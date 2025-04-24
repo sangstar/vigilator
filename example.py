@@ -5,6 +5,27 @@ from abc import abstractmethod
 import torch.nn as nn
 import torch
 import vigilator
+from dataclasses import dataclass
+
+class ModelOutput:
+    uuid: str
+    timestamp: str
+    text: str
+    token_ids: list[int]
+    logits: torch.Tensor
+
+    def __init__(self,
+                 uuid,
+                 timestamp,
+                 text,
+                 token_ids,
+                 logits):
+        self.uuid = uuid
+        self.timestamp = timestamp
+        self.text = text
+        self.token_ids = token_ids
+        self.logits = torch.Tensor(logits)
+
 
 class Model:
     model: nn.Module
@@ -38,10 +59,11 @@ def add_vigilator(model: Model, tokenizer_vocab: dict):
     server_is_launched: bool = False
     def call_wrapper(func):
         def wrapper(self, *args, **kwargs):
+            text = kwargs.get("text")
             input_tokens = kwargs.get("input_ids")
             output = func(*args, **kwargs)
             assert type(input_tokens) == torch.Tensor
-            vigilator.send_output(input_ids_to_list(input_tokens), logits_to_list(output.logits))
+            vigilator.send_output(text, input_ids_to_list(input_tokens), logits_to_list(output.logits))
             return output
         return wrapper
 
@@ -66,13 +88,21 @@ def main():
         "EleutherAI/pythia-70m",
     )
 
+    prompt = "Hello, I am"
 
     with add_vigilator(model, tokenizer.vocab):
 
-        inputs = tokenizer("Hello, I am", return_tensors="pt")
-        tokens = model.__call__(**inputs)
+        inputs = tokenizer(prompt, return_tensors="pt")
+        req_dict = {**inputs}
+        req_dict["text"] = prompt
+        tokens = model.__call__(**req_dict)
 
-    print(vigilator.retrieve_output(1))
+    tup = vigilator.retrieve_output_by_text(prompt)
+    print(
+        ModelOutput(
+            *tup
+        )
+    )
 
 if __name__ == "__main__":
     main()

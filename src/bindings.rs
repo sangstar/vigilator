@@ -6,9 +6,6 @@ use crate::outputs::{ModelOutput, Field, PyModelOutput, DB_TEXT_FIELD_NAME,
                      DB_TOKEN_IDS_FIELD_NAME, DB_UUID_FIELD_NAME,
                      DB_TIME_FIELD_NAME, DB_LOGITS_FIELD_NAME};
 
-// TODO: Include decoded text in the database as well so you can query by
-//       a prompt
-
 // TODO: Will need to add some size limitation policy to the database so it doesn't
 //       OOM from some many entries in memory
 
