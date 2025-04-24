@@ -131,7 +131,13 @@ pub async fn insert_output(output: &ModelOutput) -> Result<(), sqlx::Error> {
 
 pub async fn query_field<T>(field: Field<T>) -> Result<ModelOutput, PyErr>
     where
-    T: for <'q> sqlx::Encode<'q, sqlx::Sqlite> + sqlx::Type<sqlx::Sqlite> + bincode::Encode + Clone + bincode::Decode<()> + std::fmt::Debug,
+    T: for <'q>
+    sqlx::Encode<'q, sqlx::Sqlite>
+    + sqlx::Type<sqlx::Sqlite>
+    + bincode::Encode
+    + Clone
+    + bincode::Decode<()>
+    + std::fmt::Debug,
 {
     maybe_init_pool().await;
     println!("New connection. Is the table empty?");
