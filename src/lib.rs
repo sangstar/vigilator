@@ -1,16 +1,15 @@
 use crate::db::insert_output;
 use crate::outputs::ModelOutput;
 
-pub mod outputs;
 pub mod bindings;
 pub mod db;
-
-
+pub mod outputs;
+mod server;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::{query_field};
+    use crate::db::query_field;
 
     #[tokio::test]
     async fn test_send_output() {
@@ -21,9 +20,13 @@ mod tests {
         let text = "foo bar".to_string();
 
         let output = ModelOutput::new(text.clone(), token_ids.clone(), logits.clone());
-        insert_output(&output).await.expect("Failed to insert output");
+        insert_output(&output)
+            .await
+            .expect("Failed to insert output");
 
-        let queried = query_field(output.text).await.expect("Failed querying data.");
+        let queried = query_field(output.text)
+            .await
+            .expect("Failed querying data.");
 
         assert_eq!(queried.text.value, text);
         assert_eq!(queried.token_ids.value, token_ids);
