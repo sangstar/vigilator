@@ -3,8 +3,7 @@ use pyo3::{pyfunction, PyResult};
 
 use crate::db::{insert_output, query_field, TOKIO_RUNTIME};
 use crate::outputs::{
-    Field, ModelOutput, PyModelOutput, DB_LOGITS_FIELD_NAME, DB_TEXT_FIELD_NAME,
-    DB_TIME_FIELD_NAME, DB_TOKEN_IDS_FIELD_NAME, DB_UUID_FIELD_NAME,
+    Field, ModelOutput, PyModelOutput, FieldName
 };
 
 // TODO: Will need to add some size limitation policy to the database so it doesn't
@@ -22,7 +21,7 @@ pub fn send_output(text: String, token_ids: Vec<u32>, logits: Vec<f32>) -> PyRes
 #[pyfunction]
 pub fn retrieve_output_by_text(text: &str) -> PyResult<PyModelOutput> {
     let text_field = Field {
-        field_name: DB_TEXT_FIELD_NAME.to_string(),
+        field_name: FieldName::Text,
         value: text.to_string(),
     };
     let output: ModelOutput = TOKIO_RUNTIME.block_on(query_field(text_field))?;

@@ -1,23 +1,55 @@
+use std::fmt::Display;
+use std::ops::IndexMut;
 use bincode;
 use bincode::error::{DecodeError, EncodeError};
 use bincode::{Decode, Encode};
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize, Serializer};
+use strum::IntoEnumIterator;
 use sqlx::Type;
 use time::OffsetDateTime;
 use uuid::Uuid;
+use strum_macros::EnumIter;
 
-pub static DB_TEXT_FIELD_NAME: &str = "text";
-pub static DB_TOKEN_IDS_FIELD_NAME: &str = "token_ids";
-pub static DB_LOGITS_FIELD_NAME: &str = "logits";
-pub static DB_UUID_FIELD_NAME: &str = "uuid";
-pub static DB_TIME_FIELD_NAME: &str = "timestamp";
+#[derive(Deserialize, Serialize, Encode, Decode, Type, Clone, EnumIter, Debug)]
+pub enum FieldName {
+    Text,
+    TokenIds,
+    Logits,
+    UUID,
+    Timestamp
+}
+
+impl Display for FieldName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            FieldName::Text => {
+                "text".to_string()
+            }
+            FieldName::TokenIds => {
+                "token_ids".to_string()
+            }
+            FieldName::UUID => {
+                "uuid".to_string()
+            }
+            FieldName::Logits => {
+                "logits".to_string()
+            }
+            FieldName::Timestamp => {
+                "timestamp".to_string()
+            }
+        };
+        write!(f, "{}", str)
+    }
+}
+
+
 
 pub type PyModelOutput = (String, String, String, Vec<u32>, Vec<f32>);
 
 #[derive(Deserialize, Serialize, Encode, Decode, Type, Clone, Debug)]
 pub struct Field<T: Clone + bincode::Encode> {
-    pub field_name: String,
+    pub field_name: FieldName,
     pub value: T,
 }
 
@@ -45,23 +77,23 @@ pub struct ModelOutput {
 impl ModelOutput {
     pub fn new(text: String, token_ids: Vec<u32>, logits: Vec<f32>) -> Self {
         let output_text = Field {
-            field_name: DB_TEXT_FIELD_NAME.to_string(),
+            field_name: FieldName::Text,
             value: text,
         };
         let output_token_ids = Field {
-            field_name: DB_TOKEN_IDS_FIELD_NAME.to_string(),
+            field_name: FieldName::TokenIds,
             value: token_ids,
         };
         let output_logits = Field {
-            field_name: DB_LOGITS_FIELD_NAME.to_string(),
+            field_name: FieldName::Logits,
             value: logits,
         };
         let output_uuid = Field {
-            field_name: DB_UUID_FIELD_NAME.to_string(),
+            field_name: FieldName::UUID,
             value: Uuid::new_v4().to_string(),
         };
         let output_time = Field {
-            field_name: DB_TIME_FIELD_NAME.to_string(),
+            field_name: FieldName::Timestamp,
             value: OffsetDateTime::now_utc().to_string(),
         };
 
@@ -91,5 +123,29 @@ impl ModelOutput {
             self.token_ids.value.clone(),
             self.logits.value.clone(),
         )
+    }
+
+    pub fn generate_table_query() -> String {
+        let mut str_builder = vec![];
+        str_builder.push("CREATE TABLE IF NOT EXISTS model_outputs (\n".to_string());
+        str_builder.push("\tid INTEGER PRIMARY KEY,\n".to_string());
+        for field in FieldName::iter() {
+            str_builder.push(format!("\t{} TEXT NOT NULL,\n", field.to_string()));
+        }
+        if let Some(last) = str_builder.last_mut() {
+            *last = last.replace("NULL,", "NULL");
+        }
+        str_builder.push("\t)".to_string());
+        str_builder.join("")
+    }
+
+    pub fn get_top_token_id(&self) -> (u32, f32) {
+        let max_val = self.logits.value.iter()
+            .copied()
+            .reduce(f32::max)
+            .unwrap();
+        let max_val_pos = self.logits.value.iter().position(|&x| x == max_val).unwrap();
+        let token_id = self.token_ids.value[max_val_pos];
+        (token_id, max_val.clone())
     }
 }

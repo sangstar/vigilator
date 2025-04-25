@@ -1,7 +1,4 @@
-use crate::outputs::{
-    Field, ModelOutput, DB_LOGITS_FIELD_NAME, DB_TEXT_FIELD_NAME, DB_TIME_FIELD_NAME,
-    DB_TOKEN_IDS_FIELD_NAME, DB_UUID_FIELD_NAME,
-};
+use crate::outputs::{Field, ModelOutput, FieldName};
 use once_cell::sync::{Lazy, OnceCell};
 use pyo3::{PyErr, Python};
 use sqlx::{Row, SqlitePool};
@@ -14,11 +11,11 @@ pub static TOKIO_RUNTIME: Lazy<Runtime> =
 pub static SQLITE_POOL: OnceCell<SqlitePool> = OnceCell::new();
 
 fn retrieve_metadata_from_row(row: &sqlx::sqlite::SqliteRow) -> Result<ModelOutput, PyErr> {
-    let uuid: String = row.try_get("uuid").expect("Failed to get uuid");
-    let timestamp: String = row.try_get("timestamp").expect("Failed to get timestamp");
-    let text: String = row.try_get("text").expect("Failed to get text");
-    let token_ids: Vec<u8> = row.try_get("token_ids").expect("Failed to get token_ids");
-    let logits: Vec<u8> = row.try_get("logits").expect("Failed to get logits");
+    let uuid: String = row.try_get(&*FieldName::UUID.to_string()).expect("Failed to get uuid");
+    let timestamp: String = row.try_get(&*FieldName::Timestamp.to_string()).expect("Failed to get timestamp");
+    let text: String = row.try_get(&*FieldName::Text.to_string()).expect("Failed to get text");
+    let token_ids: Vec<u8> = row.try_get(&*FieldName::TokenIds.to_string()).expect("Failed to get token_ids");
+    let logits: Vec<u8> = row.try_get(&*FieldName::Logits.to_string()).expect("Failed to get logits");
 
     let token_id_decoded = Field::<Vec<u32>>::decode(&token_ids).map_err(|e| {
         Python::with_gil(|py| {
@@ -34,23 +31,23 @@ fn retrieve_metadata_from_row(row: &sqlx::sqlite::SqliteRow) -> Result<ModelOutp
 
     Ok(ModelOutput {
         uuid: Field {
-            field_name: DB_UUID_FIELD_NAME.to_string(),
+            field_name: FieldName::UUID,
             value: uuid,
         },
         timestamp: Field {
-            field_name: DB_TIME_FIELD_NAME.to_string(),
+            field_name: FieldName::Timestamp,
             value: timestamp,
         },
         text: Field {
-            field_name: DB_TEXT_FIELD_NAME.to_string(),
+            field_name: FieldName::Text,
             value: text,
         },
         token_ids: Field {
-            field_name: DB_TOKEN_IDS_FIELD_NAME.to_string(),
+            field_name: FieldName::TokenIds,
             value: token_id_decoded,
         },
         logits: Field {
-            field_name: DB_LOGITS_FIELD_NAME.to_string(),
+            field_name: FieldName::Logits,
             value: logits_decoded,
         },
     })
@@ -69,11 +66,11 @@ async fn _debug_table_contents(pool: &SqlitePool) {
 
     for row in rows {
         let id: i32 = row.try_get("id").expect("Failed to get id");
-        let uuid: String = row.try_get("uuid").expect("Failed to get uuid");
-        let timestamp: String = row.try_get("timestamp").expect("Failed to get timestamp");
-        let text: String = row.try_get("text").expect("Failed to get text");
-        let token_ids: Vec<u8> = row.try_get("token_ids").expect("Failed to get token_ids");
-        let logits: Vec<u8> = row.try_get("logits").expect("Failed to get logits");
+        let uuid: String = row.try_get(&*FieldName::UUID.to_string()).expect("Failed to get uuid");
+        let timestamp: String = row.try_get(&*FieldName::Timestamp.to_string()).expect("Failed to get timestamp");
+        let text: String = row.try_get(&*FieldName::Text.to_string()).expect("Failed to get text");
+        let token_ids: Vec<u8> = row.try_get(&*FieldName::TokenIds.to_string()).expect("Failed to get token_ids");
+        let logits: Vec<u8> = row.try_get(&*FieldName::Logits.to_string()).expect("Failed to get logits");
 
         dbg!(
             id,
@@ -103,18 +100,9 @@ async fn maybe_init_pool() {
 }
 
 async fn maybe_create_table(pool: &SqlitePool) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        r#"
-        CREATE TABLE IF NOT EXISTS model_outputs (
-            id INTEGER PRIMARY KEY,
-            uuid TEXT NOT NULL,
-            timestamp TEXT NOT NULL,
-            text TEXT NOT NULL,
-            token_ids TEXT NOT NULL,
-            logits TEXT NOT NULL
-        )
-        "#,
-    )
+    let raw_query = ModelOutput::generate_table_query();
+    dbg!(&raw_query);
+    sqlx::query(&raw_query)
     .execute(pool)
     .await?;
     Ok(())
