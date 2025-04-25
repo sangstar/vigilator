@@ -139,13 +139,17 @@ impl ModelOutput {
         str_builder.join("")
     }
 
-    pub fn get_top_token_id(&self) -> (u32, f32) {
-        let max_val = self.logits.value.iter()
-            .copied()
-            .reduce(f32::max)
-            .unwrap();
-        let max_val_pos = self.logits.value.iter().position(|&x| x == max_val).unwrap();
-        let token_id = self.token_ids.value[max_val_pos];
-        (token_id, max_val.clone())
+    pub fn get_top_token_id(&self, top_k: u64) -> Vec<(u32, f32)> {
+        let mut top_vec = vec![];
+        let mut logits = self.logits.value.clone();
+
+        logits.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        let tops = logits.iter().take(top_k as usize);
+        for top in tops {
+            let max_val_pos = self.logits.value.iter().position(|x| x == top).unwrap();
+            let token_id = self.token_ids.value[max_val_pos];
+            top_vec.push((token_id, top.clone()))
+        }
+        top_vec
     }
 }
