@@ -139,7 +139,7 @@ impl ModelOutput {
         str_builder.join("")
     }
 
-    pub fn get_top_token_id(&self, top_k: u64) -> Vec<(u32, f32)> {
+    pub fn get_top_token_ids(&self, top_k: u64) -> Vec<(u32, f32)> {
         let mut top_vec = vec![];
         let mut logits = self.logits.value.clone();
 
