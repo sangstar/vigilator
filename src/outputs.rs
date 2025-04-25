@@ -147,8 +147,9 @@ impl ModelOutput {
         let tops = logits.iter().take(top_k as usize);
         for top in tops {
             let max_val_pos = self.logits.value.iter().position(|x| x == top).unwrap();
-            let token_id = self.token_ids.value[max_val_pos];
-            top_vec.push((token_id, top.clone()))
+            dbg!(max_val_pos);
+            dbg!(top.clone());
+            top_vec.push((max_val_pos as u32, top.clone()))
         }
         top_vec
     }

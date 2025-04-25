@@ -1,3 +1,6 @@
+import time
+
+import requests
 import types
 from transformers import GPTNeoXForCausalLM, AutoTokenizer
 from contextlib import contextmanager
@@ -49,10 +52,8 @@ def input_ids_to_list(tens: torch.Tensor) -> list:
     return tens.tolist()[0]
 
 def logits_to_list(logits: torch.Tensor) -> list:
-    shape = logits.shape
-    assert len(shape) == 3
-    reshaped_logits = logits.reshape(1, shape[1] * shape[2])
-    return reshaped_logits.tolist()[0]
+    # Only concern self with last forward pass for logits for next token
+    return logits[:, -1, :].tolist()[0]
 
 @contextmanager
 def add_vigilator(model: Model, tokenizer_vocab: dict):
@@ -90,6 +91,8 @@ def main():
 
     prompt = "Hello, I am"
 
+    vigilator.start_server()
+
     with add_vigilator(model, tokenizer.vocab):
 
         inputs = tokenizer(prompt, return_tensors="pt")
@@ -97,12 +100,21 @@ def main():
         req_dict["text"] = prompt
         tokens = model.__call__(**req_dict)
 
-    tup = vigilator.retrieve_output_by_text(prompt)
-    print(
-        ModelOutput(
-            *tup
+    time.sleep(5)
+    response = requests.get("http://localhost:3000/", params={"text": prompt, "top_k": 5})
+    if response.status_code == 200:
+        data = response.json()
+        print(
+            ModelOutput(
+                uuid="",
+                timestamp="",
+                text=data["text"],
+                token_ids=data["token_ids"],
+                logits=data["logits"],
+            )
         )
-    )
+    else:
+        raise Exception(f"Failed to retrieve output: {response.status_code} - {response.text}")
 
 if __name__ == "__main__":
     main()
